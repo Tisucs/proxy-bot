@@ -729,7 +729,7 @@ async def admin_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
         await admin_settings(update, context)
     elif data == 'admin_backup':
         await admin_backup(update, context)
-
+        
 # РЕГИСТРАЦИЯ ОБРАБОТЧИКОВ #
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("admin", admin_panel))
@@ -742,8 +742,134 @@ app.add_handler(CallbackQueryHandler(my_subscriptions, pattern="^my_subscription
 app.add_handler(CallbackQueryHandler(help_handler, pattern="^help$"))
 app.add_handler(CallbackQueryHandler(back_to_main, pattern="^back_to_main$"))
 app.add_handler(CallbackQueryHandler(admin_callback_handler, pattern="^admin"))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_proxy_input))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_broadcast))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_admin_messages))
+# НАСТРОЙКИ - ИЗМЕНЕНИЕ РЕКВИЗИТОВ
+async def admin_set_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Изменение платёжных реквизитов"""
+    if update.callback_query.from_user.id != ADMIN_ID:
+        return
+    
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        "💰 **Изменение реквизитов**\n\n"
+        "Отправь новый текст реквизитов для оплаты.\n"
+        "Формат: любой текст с картой/кошельком\n\n"
+        "Для отмены отправь /cancel",
+        parse_mode='Markdown'
+    )
+    context.user_data['awaiting_payment_details'] = True
+
+async def handle_payment_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сохранение новых реквизитов"""
+    if update.effective_user.id != ADMIN_ID:
+        return
+    
+    if not context.user_data.get('awaiting_payment_details'):
+        return
+    
+    new_details = update.message.text
+    if new_details == '/cancel':
+        context.user_data['awaiting_payment_details'] = False
+        await update.message.reply_text("❌ Изменение отменено")
+        return
+    
+    settings['payment_details'] = new_details
+    save_settings(settings)
+    
+    context.user_data['awaiting_payment_details'] = False
+    await update.message.reply_text(f"✅ Реквизиты успешно обновлены!\n\nНовые реквизиты:\n{new_details}")
+
+async def admin_set_prices(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Изменение цен на тарифы"""
+    if update.callback_query.from_user.id != ADMIN_ID:
+        return
+    
+    query = update.callback_query
+    await query.answer()
+    
+    keyboard = []
+    for plan_id, plan in SUBSCRIPTION_PLANS.items():
+        keyboard.append([InlineKeyboardButton(
+            f"{plan['name']} - текущая цена: {plan['price']}₽", 
+            callback_data=f"price_{plan_id}"
+        )])
+    keyboard.append([InlineKeyboardButton("◀️ Назад", callback_data='admin_settings')])
+    
+    await query.edit_message_text(
+        "💵 **Изменение цен**\n\nВыбери тариф для изменения цены:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='Markdown'
+    )
+
+async def price_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Редактирование цены выбранного тарифа"""
+    if update.callback_query.from_user.id != ADMIN_ID:
+        return
+    
+    query = update.callback_query
+    await query.answer()
+    
+    plan_id = query.data.replace('price_', '')
+    context.user_data['editing_price'] = plan_id
+    plan = SUBSCRIPTION_PLANS.get(plan_id)
+    
+    await query.edit_message_text(
+        f"💰 Изменение цены для тарифа: **{plan['name']}**\n"
+        f"Текущая цена: {plan['price']}₽\n\n"
+        f"Отправь **новую цену** (только число, без ₽)\n\n"
+        f"Для отмены отправь /cancel",
+        parse_mode='Markdown'
+    )
+
+async def handle_price_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сохранение новой цены"""
+    if update.effective_user.id != ADMIN_ID:
+        return
+    
+    plan_id = context.user_data.get('editing_price')
+    if not plan_id:
+        return
+    
+    try:
+        new_price = int(update.message.text)
+        SUBSCRIPTION_PLANS[plan_id]['price'] = new_price
+        
+        context.user_data['editing_price'] = None
+        await update.message.reply_text(f"✅ Цена для тарифа {SUBSCRIPTION_PLANS[plan_id]['name']} изменена на {new_price}₽")
+    except ValueError:
+        await update.message.reply_text("❌ Ошибка! Отправь число (1-99)")
+async def handle_admin_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Универсальный обработчик сообщений от админа"""
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("⛔️ Нет доступа")
+        return
+    
+    # Если в режиме добавления прокси
+    if context.user_data.get('awaiting_proxy'):
+        await handle_proxy_input(update, context)
+    
+    # Если в режиме рассылки
+    elif context.user_data.get('broadcast_mode'):
+        await handle_broadcast(update, context)
+    
+    # Если в режиме изменения реквизитов
+    elif context.user_data.get('awaiting_payment_details'):
+        await handle_payment_details(update, context)
+    
+    # Если в режиме изменения цен
+    elif context.user_data.get('editing_price'):
+        await handle_price_change(update, context)
+    
+    else:
+        await update.message.reply_text("❌ Неизвестная команда. Используй кнопки меню.")
+# Настройки - изменение реквизитов и цен
+app.add_handler(CallbackQueryHandler(admin_set_payment, pattern="^admin_set_payment$"))
+app.add_handler(CallbackQueryHandler(admin_set_prices, pattern="^admin_set_prices$"))
+app.add_handler(CallbackQueryHandler(price_edit, pattern="^price_"))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_payment_details))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_price_change))
 
 # АДМИН-КНОПКИ 
 app.add_handler(CallbackQueryHandler(admin_stats, pattern="^admin_stats$"))
