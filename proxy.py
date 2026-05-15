@@ -745,9 +745,18 @@ app.add_handler(CallbackQueryHandler(admin_callback_handler, pattern="^admin"))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_proxy_input))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_broadcast))
 
+# АДМИН-КНОПКИ 
+app.add_handler(CallbackQueryHandler(admin_stats, pattern="^admin_stats$"))
+app.add_handler(CallbackQueryHandler(admin_add_proxy, pattern="^admin_add_proxy$"))
+app.add_handler(CallbackQueryHandler(admin_list_proxies, pattern="^admin_list_proxies$"))
+app.add_handler(CallbackQueryHandler(admin_all_orders, pattern="^admin_all_orders$"))
+app.add_handler(CallbackQueryHandler(admin_broadcast, pattern="^admin_broadcast$"))
+app.add_handler(CallbackQueryHandler(admin_settings, pattern="^admin_settings$"))
+app.add_handler(CallbackQueryHandler(admin_backup, pattern="^admin_backup$"))
+
 # ЗАПУСК
 if __name__ == "__main__":
     print("🚀 Бот запущен...")
     print(f"📊 Админ ID: {ADMIN_ID}")
     start_expiry_checker()
-    app.run_polling()
+    app.run_polling()   
