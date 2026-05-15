@@ -20,9 +20,7 @@ ORDERS_FILE = 'orders.json'
 PROXIES_FILE = 'proxies.json'
 SETTINGS_FILE = 'settings.json'
 
-# ============================================
 # РАСШИРЕННЫЕ ФУНКЦИИ РАБОТЫ С ФАЙЛАМИ
-# ============================================
 def load_proxies():
     """Загрузка прокси с проверкой на пустой файл"""
     default_proxies = {
@@ -77,9 +75,7 @@ def save_settings(settings):
     with open(SETTINGS_FILE, 'w') as f:
         json.dump(settings, f, indent=2)
 
-# ============================================
 # НАСТРОЙКА HTTP-КЛИЕНТА
-# ============================================
 request = HTTPXRequest(
     connection_pool_size=20,
     connect_timeout=30.0,
@@ -88,9 +84,7 @@ request = HTTPXRequest(
     http_version="1.1"
 )
 
-# ============================================
 # ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
-# ============================================
 app = Application.builder().token(TOKEN).request(request).build()
 proxies_pool = load_proxies()
 orders = load_orders()
@@ -114,9 +108,7 @@ PAYMENT_DETAILS = """
 После оплаты нажми кнопку "Я оплатил(а)" и пришли скриншот
 """
 
-# ============================================
 # ПРОВЕРКА СРОКА ДЕЙСТВИЯ ПОДПИСОК
-# ============================================
 async def check_expired_subscriptions(context: ContextTypes.DEFAULT_TYPE):
     """Фоновая задача: проверка истёкших подписок"""
     now = datetime.now()
@@ -155,9 +147,7 @@ def start_expiry_checker():
     if job_queue:
         job_queue.run_repeating(check_expired_subscriptions, interval=3600, first=10)
 
-# ============================================
 # АДМИН-ПАНЕЛЬ
-# ============================================
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает админ-панель"""
     if update.effective_user.id != ADMIN_ID:
@@ -443,9 +433,7 @@ async def admin_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     os.remove(backup_file)
     await query.edit_message_text("✅ Резервная копия создана и отправлена!")
 
-# ============================================
-# ОСНОВНЫЕ ФУНКЦИИ БОТА
-# ============================================
+#  ФУНКЦИИ БОТА
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("🛒 Купить прокси", callback_data='buy')],
@@ -706,9 +694,7 @@ async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text("👋 Главное меню:", reply_markup=reply_markup)
 
-# ============================================
-# ДОПОЛНИТЕЛЬНЫЕ ADMIN CALLBACK
-# ============================================
+# ДОПОЛНИТЕЛЬНЫЕ ADMIN CALLBACK #
 async def admin_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик всех admin callback'ов"""
     query = update.callback_query
@@ -744,9 +730,7 @@ async def admin_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
     elif data == 'admin_backup':
         await admin_backup(update, context)
 
-# ============================================
-# РЕГИСТРАЦИЯ ОБРАБОТЧИКОВ
-# ============================================
+# РЕГИСТРАЦИЯ ОБРАБОТЧИКОВ #
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("admin", admin_panel))
 app.add_handler(CallbackQueryHandler(show_plans, pattern="^buy$"))
@@ -761,9 +745,7 @@ app.add_handler(CallbackQueryHandler(admin_callback_handler, pattern="^admin"))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_proxy_input))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_broadcast))
 
-# ============================================
 # ЗАПУСК
-# ============================================
 if __name__ == "__main__":
     print("🚀 Бот запущен...")
     print(f"📊 Админ ID: {ADMIN_ID}")
